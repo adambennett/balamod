@@ -151,45 +151,35 @@ function injectTail(path, function_name, code)
     end
 end
 
+local function processDirectory(directory, depth)
+    if depth > 2 then
+        return
+    end
+
+    for _, filename in ipairs(love.filesystem.getDirectoryItems(directory)) do
+        local filePath = directory .. "/" .. filename
+        if love.filesystem.getInfo(filePath).type == "directory" then
+            processDirectory(filePath, depth + 1)
+        elseif filename:match("%.lua$") then -- Only load lua files
+            local modContent, loadErr = love.filesystem.load(filePath) -- Load the file
+
+            if modContent then  -- Check if the file was loaded successfully
+                local success, mod = pcall(modContent) -- Execute the file
+                if success and mod == nil then
+                    table.insert(mods, mod) -- Add the mod to the list of mods
+                elseif mod == nil then
+                    print("Error loading mod: " .. filePath .. "\n" .. mod) -- Log the error to the console Todo: Log to file
+                end
+            else
+                print("Error reading mod: " .. filePath .. "\n" .. loadErr) -- Log the error to the console Todo: Log to file
+            end
+        end
+    end
+end
+
 -- apis will be loaded first, then mods
-
-local apis_files = love.filesystem.getDirectoryItems("apis") -- Load all apis
-for _, file in ipairs(apis_files) do
-	if file:sub(-4) == ".lua" then -- Only load lua files
-		local modPath = "apis/" .. file
-		local modContent, loadErr = love.filesystem.load(modPath) -- Load the file
-
-		if modContent then -- Check if the file was loaded successfully
-			local success, mod = pcall(modContent)
-			if success then -- Check if the file was executed successfully
-				table.insert(mods, mod) -- Add the api to the list of mods if there is a mod in the file
-			else
-				print("Error loading api: " .. modPath .. "\n" .. mod) -- Log the error to the console Todo: Log to file
-			end
-		else
-			print("Error reading api: " .. modPath .. "\n" .. loadErr) -- Log the error to the console Todo: Log to file
-		end
-	end
-end
-
-local files = love.filesystem.getDirectoryItems("mods") -- Load all mods
-for _, file in ipairs(files) do
-	if file:sub(-4) == ".lua" then -- Only load lua files
-		local modPath = "mods/" .. file
-		local modContent, loadErr = love.filesystem.load(modPath) -- Load the file
-
-		if modContent then  -- Check if the file was loaded successfully
-			local success, mod = pcall(modContent) -- Execute the file
-			if success then
-				table.insert(mods, mod) -- Add the mod to the list of mods
-			else
-				print("Error loading mod: " .. modPath .. "\n" .. mod) -- Log the error to the console Todo: Log to file
-			end
-		else
-			print("Error reading mod: " .. modPath .. "\n" .. loadErr) -- Log the error to the console Todo: Log to file
-		end
-	end
-end
+processDirectory("apis", 1)
+processDirectory("mods", 1)
 
 for _, mod in ipairs(mods) do
 	if mod.enabled and mod.on_pre_load and type(mod.on_pre_load) == "function" then
