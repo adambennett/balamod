@@ -263,6 +263,10 @@ function installMod(modId)
         owner, repo, branch, path = modUrl:match('https://github%.com/([^/]+)/([^/]+)/blob/([^/]+)/(.*)')
     end
 
+    if path == nil then
+        owner, repo, branch, path = modUrl:match('https://github%.com/([^/]+)/([^/]+)/tree/([^/]+)/(.*)')
+    end
+
     while path:sub(-1) == '/' do
         path = path:sub(1, -2)
     end
@@ -354,10 +358,10 @@ function installMod(modId)
 
             if modContent then
                 local success, mod = pcall(modContent)
-                if success then
+                if success and mod == nil then
                     table.insert(mods, mod)
                     sendDebugMessage('Mod ' .. p:sub(#path + 2) .. ' loaded')
-                else
+                elseif mod == nil then
                     print('Error loading mod: ' .. p:sub(#path + 2) .. '\n' .. mod)
                     return RESULT.MOD_PCALL_ERROR
                 end
@@ -366,6 +370,11 @@ function installMod(modId)
                 return RESULT.MOD_FS_LOAD_ERROR
             end
         end
+    end
+
+    local installed = getModByModId(mods, modId)
+    if installed and installed.enabled and installed.on_enable and type(installed.on_enable) == 'function' then
+        pcall(installed.on_enable)
     end
 
     return RESULT.SUCCESS
